@@ -1,0 +1,60 @@
+services:
+  provider-mock:
+    image: ghcr.io/wiremock/wiremock:3.12.1-1
+    ports:
+      - "9090:8080"
+    volumes:
+      - ./wiremock/mappings:/home/wiremock/mappings:ro
+
+  db:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_DB: activation
+      POSTGRES_USER: activation
+      POSTGRES_PASSWORD: activation_local
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -h 127.0.0.1 -U activation -d activation
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/activation
+      SPRING_DATASOURCE_USERNAME: activation
+      SPRING_DATASOURCE_PASSWORD: activation_local
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_OPEN_IN_VIEW: "false"
+      PROVIDER_BASE_URL: http://provider-mock:8080
+      PROVIDER_CONNECT_TIMEOUT_MS: "1000"
+      PROVIDER_READ_TIMEOUT_MS: "2000"
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+    mem_limit: 512m
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -qO- http://127.0.0.1:8080/actuator/health | grep -q '"status":"UP"'
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      db:
+        condition: service_healthy
+      provider-mock:
+        condition: service_started
+
+volumes:
+  postgres_data:

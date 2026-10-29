@@ -1,0 +1,17 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/provider/v1/activate",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": {
+          "expression": "$.productCode",
+          "equalTo": "INTERNET-500"
+        }
+      }
+    ]
+  },
+  "response": {
+    "status": 204
+  }
+}
